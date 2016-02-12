@@ -752,6 +752,7 @@ class Connection(ConnectionBase):
                 self._init_fdsets()
 
             def poll(self, timeout):
+#                self.options.logger.blather('select %s %s' % (self.readable, timeout))
                 try:
                     r, w, x = self._select.select(self.readable, self.writable, [], timeout)
                 except select.error, err:
@@ -763,6 +764,8 @@ class Connection(ConnectionBase):
                         self.unregister_all()
                         return [], []
                     raise
+
+#                self.options.logger.blather('select ret %s %s' % (r, w))
                 return r, w
 
             def _init_fdsets(self):
@@ -775,8 +778,13 @@ class Connection(ConnectionBase):
                 self._poller = select.poll()
                 self.READ = select.POLLIN | select.POLLPRI | select.POLLHUP
                 self.WRITE = select.POLLOUT
+                self.readable_obj_map = {}
+# TODO: writable_obj_map
 
             def register_readable(self, fd):
+#                self.options.logger.blather('reg %s %s' % (fd, fd.fileno()))
+# TODO: add to this list only if fd object have fileno method
+                self.readable_obj_map[fd.fileno()] = fd
                 self._poller.register(fd, self.READ)
 
             def register_writable(self, fd):
@@ -787,6 +795,7 @@ class Connection(ConnectionBase):
 
             def poll(self, timeout):
                 fds = self._poll_fds(timeout)
+#                self.options.logger.blather('poll %s %s' % (fds, timeout))
                 readables, writables = [], []
                 for fd, eventmask in fds:
                     if self._ignore_invalid(fd, eventmask):
@@ -795,7 +804,12 @@ class Connection(ConnectionBase):
                         readables.append(fd)
                     if eventmask & self.WRITE:
                         writables.append(fd)
-                return readables, writables
+                readables_obj, writables_obj = [], []
+                for rfd in readables:
+                    if rfd in self.readable_obj_map:
+                        readables_obj.append(self.readable_obj_map[rfd])
+#                self.options.logger.blather('poll %s %s' % (readables, readables_obj))
+                return readables_obj, writables
 
             def _poll_fds(self, timeout):
                 try:
@@ -915,6 +929,8 @@ class Connection(ConnectionBase):
             def __init__(self):
                 self.logger = PollerLogger()
 
+        Poller = PollPoller
+#        Poller = SelectPoller
         return Poller(PollerOptions())
 
 
