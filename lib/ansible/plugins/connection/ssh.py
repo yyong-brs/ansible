@@ -415,7 +415,7 @@ class Connection(ConnectionBase):
 
         while True:
 #            rfd, wfd, efd = select.select(rpipes, [], [], timeout)
-            poller = get_poller()
+            poller = self.get_poller()
             for rpipe in rpipes:
                 poller.register_readable(rpipe)
             rfd, wfd = poller.poll(timeout)
@@ -906,6 +906,15 @@ class Connection(ConnectionBase):
         else:
             Poller = SelectPoller
 
-        return Poller
+        # addendum
+        class PollerLogger:
+            def blather(self, s):
+                display.vvv("SSH Poll:" + s)
+
+        class PollerOptions:
+            def __init__(self):
+                self.logger = PollerLogger()
+
+        return Poller(PollerOptions())
 
 
